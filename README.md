@@ -77,7 +77,7 @@ TrailWise-AI/
 ├── workflow.json             # Sanitized n8n workflow export (credentials removed)
 ├── docs/
 │   ├── workflow-canvas.png   # Screenshot of the n8n canvas
-│   └── email.png             # Screenshot of a sample recommendation email
+│   └── email.jpeg             # Screenshot of a sample recommendation email
 └── prompts/
     └── system_prompt.txt     # AI Agent system prompt template
 
