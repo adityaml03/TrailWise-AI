@@ -1,0 +1,353 @@
+{
+  "name": "My workflow",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "triggerAtHour": 6
+            }
+          ]
+        }
+      },
+      "id": "",
+      "name": "Schedule Trigger",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.4,
+      "position": [
+        0,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=Run today's TrailWise check for {{ $now.toFormat('cccc, d LLLL yyyy') }}. Use your tools to get today's calendar events, weather and trails, then follow your instructions.",
+        "options": {
+          "systemMessage": "=You are TrailWise AI, an autonomous personal trail-running and trekking assistant for Thiruvananthapuram, Kerala.\n\nToday is {{ $now.toFormat('cccc, d LLLL yyyy') }}.\n\n# TOOLS\n- \"Get many events in Google Calendar\": returns today's calendar events.\n- \"OpenWeatherMap\": returns the current weather in Thiruvananthapuram.\n- \"Get row(s) in sheet in Google Sheets\": returns the Available Trails Database.\n\n# TASKS\n1. Call \"Get many events in Google Calendar\" and check if today has a scheduled event whose title contains \"Trail\", \"Run\", \"Trek\", or \"Hike\" (case-insensitive).\n2. If NO matching event is scheduled, output: \"NO_EVENT_SCHEDULED\" and stop.\n3. If an event IS scheduled, call \"OpenWeatherMap\" and \"Get row(s) in sheet in Google Sheets\", analyze live weather conditions, and match them against the Available Trails Database by duration, shade level, and difficulty.\n4. Select the single best-fitting trail.\n5. Generate the final recommendation email text matching the exact plain-text format below (DO NOT include emojis to prevent encoding corruption), and reply with ONLY that finished email text (first line \"Subject: ...\"), with every [placeholder] replaced by real values from the tools. You do not send the email yourself; it is sent automatically from your reply.\n\n# EMAIL FORMAT\n\nSubject: TrailWise AI: Recommended Run for Today - [Trail Name]\n\nHi there!\n\nHere is your personalized trail recommendation for today in Thiruvananthapuram:\n\n[TRAIL] Recommended Trail: [Trail Name]\n- Distance: [Distance (km)] km\n- Elevation Gain: [Elevation Gain (m)] m\n- Estimated Running Duration: [Estimated Time (Trail Running)]\n- Shade Level: [Shade Level] | Difficulty: [Difficulty]\n\n[WEATHER] Weather Overview:\n- Condition: [Condition]\n- Temperature: [Temperature]°C\n- Humidity: [Humidity]%\n\n[WHY] Why this trail today?\n[2-3 sentences explaining fit].\n\n[SAFETY] Safety & Access Notes:\n[Notes from sheet].\n\nHave a great run!\n– TrailWise AI"
+        }
+      },
+      "id": "",
+      "name": "AI Agent",
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3.1,
+      "position": [
+        224,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "options": {
+          "temperature": 0.2,
+          "keepAlive": "30m",
+          "numCtx": 8192
+        }
+      },
+      "id": "",
+      "name": "Ollama Chat Model",
+      "type": "@n8n/n8n-nodes-langchain.lmChatOllama",
+      "typeVersion": 1,
+      "position": [
+        -80,
+        240
+      ],
+      "credentials": {
+        "ollamaApi": {
+          "id": "",
+          "name": "Ollama account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "sessionIdType": "customKey",
+        "sessionKey": "=trailwise-{{ $now.toFormat('yyyy-MM-dd') }}"
+      },
+      "id": "",
+      "name": "Simple Memory",
+      "type": "@n8n/n8n-nodes-langchain.memoryBufferWindow",
+      "typeVersion": 1.4,
+      "position": [
+        144,
+        208
+      ]
+    },
+    {
+      "parameters": {
+        "cityName": "Thiruvananthapuram"
+      },
+      "id": "",
+      "name": "OpenWeatherMap",
+      "type": "n8n-nodes-base.openWeatherMapTool",
+      "typeVersion": 1,
+      "position": [
+        352,
+        208
+      ],
+      "credentials": {
+        "openWeatherMapApi": {
+          "id": "",
+          "name": "OpenWeatherMap account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "",
+          "mode": "list",
+          "cachedResultName": "Thiruvananthapuram_TrailWise_Database",
+          "cachedResultUrl": ""
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "",
+          "mode": "list",
+          "cachedResultName": "Trivandrum Trails",
+          "cachedResultUrl": ""
+        },
+        "options": {}
+      },
+      "id": "",
+      "name": "Get row(s) in sheet in Google Sheets",
+      "type": "n8n-nodes-base.googleSheetsTool",
+      "typeVersion": 4.7,
+      "position": [
+        688,
+        208
+      ],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "getAll",
+        "calendar": {
+          "__rl": true,
+          "value": "",
+          "mode": "id"
+        },
+        "timeMin": "={{ $now.startOf('day').toISO() }}",
+        "timeMax": "={{ $now.endOf('day').toISO() }}",
+        "options": {}
+      },
+      "id": "",
+      "name": "Get many events in Google Calendar",
+      "type": "n8n-nodes-base.googleCalendarTool",
+      "typeVersion": 1.3,
+      "position": [
+        512,
+        208
+      ],
+      "credentials": {
+        "googleCalendarOAuth2Api": {
+          "id": "",
+          "name": "Google Calendar account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "combinator": "and",
+          "options": {
+            "caseSensitive": false,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $json.output }}",
+              "rightValue": "Recommended Trail",
+              "operator": {
+                "type": "string",
+                "operation": "contains"
+              }
+            },
+            {
+              "leftValue": "={{ $json.output }}",
+              "rightValue": "NO_EVENT_SCHEDULED",
+              "operator": {
+                "type": "string",
+                "operation": "notContains"
+              }
+            }
+          ]
+        },
+        "looseTypeValidation": true,
+        "options": {
+          "ignoreCase": true
+        }
+      },
+      "id": "",
+      "name": "Has Recommendation?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.4,
+      "position": [
+        784,
+        -16
+      ]
+    },
+    {
+      "parameters": {
+        "sendTo": "",
+        "subject": "={{ ($json.output.match(/Subject:\\s*(.+)/i) || [])[1] || 'TrailWise Daily Run Recommendation' }}",
+        "emailType": "text",
+        "message": "={{ $json.output.replace(/^\\s*Subject:.*\\n+/i, '').trim() }}",
+        "options": {}
+      },
+      "id": "",
+      "name": "Send Recommendation Email",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [
+        1008,
+        -16
+      ],
+      "webhookId": "0",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "",
+          "name": "Gmail account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "id": "",
+      "name": "When chat message received",
+      "type": "@n8n/n8n-nodes-langchain.chatTrigger",
+      "typeVersion": 1.5,
+      "position": [
+        0,
+        -176
+      ],
+      "webhookId": ""
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Schedule Trigger": {
+      "main": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Agent": {
+      "main": [
+        [
+          {
+            "node": "Has Recommendation?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Ollama Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Simple Memory": {
+      "ai_memory": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_memory",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenWeatherMap": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get row(s) in sheet in Google Sheets": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get many events in Google Calendar": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Has Recommendation?": {
+      "main": [
+        [
+          {
+            "node": "Send Recommendation Email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "When chat message received": {
+      "main": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "versionId": "",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": ""
+  },
+  "nodeGroups": [],
+  "id": "",
+  "tags": []
+}
